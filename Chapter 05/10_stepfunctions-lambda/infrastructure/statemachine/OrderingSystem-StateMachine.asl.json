@@ -1,0 +1,205 @@
+{
+  "Comment": "Orchestration of Ordering System",
+  "StartAt": "NewOrder",
+  "States": {
+    "NewOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:new-order-service:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Order created?"
+    },
+    "Order created?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.statusCode",
+              "NumericEquals": 200
+            },
+            {
+              "Variable": "$.orderId",
+              "IsPresent": true
+            }
+          ],
+          "Next": "Parallel"
+        }
+      ],
+      "Default": "Order creation failed"
+    },
+    "Order creation failed": {
+      "Type": "Fail"
+    },
+    "Parallel": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "ReserveInventory",
+          "States": {
+            "ReserveInventory": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:reserve-inventory-service:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Inventory reserved?",
+              "ResultSelector": {
+                "reserveInventoryStatusCode.$": "$.StatusCode"
+              }
+            },
+            "Inventory reserved?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.reserveInventoryStatusCode",
+                  "NumericEquals": 200,
+                  "Next": "Pass to FulfilOrder (1)"
+                }
+              ],
+              "Default": "Reserve inventory failed"
+            },
+            "Pass to FulfilOrder (1)": {
+              "Type": "Pass",
+              "End": true
+            },
+            "Reserve inventory failed": {
+              "Type": "Fail"
+            }
+          }
+        },
+        {
+          "StartAt": "ProcessPayment",
+          "States": {
+            "ProcessPayment": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "Payload.$": "$",
+                "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:process-payment-service:$LATEST"
+              },
+              "Retry": [
+                {
+                  "ErrorEquals": [
+                    "Lambda.ServiceException",
+                    "Lambda.AWSLambdaException",
+                    "Lambda.SdkClientException",
+                    "Lambda.TooManyRequestsException"
+                  ],
+                  "IntervalSeconds": 1,
+                  "MaxAttempts": 3,
+                  "BackoffRate": 2
+                }
+              ],
+              "Next": "Payment processed?",
+              "ResultSelector": {
+                "processPaymentStatusCode.$": "$.StatusCode"
+              }
+            },
+            "Payment processed?": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$.processPaymentStatusCode",
+                  "NumericEquals": 200,
+                  "Next": "Pass to FulfilOrder (2)"
+                }
+              ],
+              "Default": "Process payment failed"
+            },
+            "Pass to FulfilOrder (2)": {
+              "Type": "Pass",
+              "End": true
+            },
+            "Process payment failed": {
+              "Type": "Fail"
+            }
+          }
+        }
+      ],
+      "Next": "FulfilOrder",
+      "ResultPath": "$.response"
+    },
+    "FulfilOrder": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:fulfil-order-service:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "ResultSelector": {
+        "orderId.$": "$.Payload.orderId",
+        "statusCode.$": "$.StatusCode"
+      },
+      "Next": "Choice"
+    },
+    "Choice": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            {
+              "Variable": "$.statusCode",
+              "NumericEquals": 200
+            },
+            {
+              "Variable": "$.orderId",
+              "IsPresent": true
+            }
+          ],
+          "Next": "Success"
+        }
+      ],
+      "Default": "Fulfil order failed"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "Fulfil order failed": {
+      "Type": "Fail"
+    }
+  }
+}

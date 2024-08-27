@@ -1,0 +1,30 @@
+config:
+  phases:
+    - duration: 60
+      arrivalRate: 30
+  http:
+    timeout: 29
+scenarios:
+  - flow:
+      - post:
+          url: "/orders"
+          json:
+            customerId: "123"
+            items:
+              - item1
+              - item2
+              - item3
+            total: "74.5"
+            paymentDetails:
+              paymentMethod: CARD
+              paymentTransactionId: FDS232SGFDF341934
+            shippingDetails:
+              receiverName: John Doe
+              receiverPhoneNumber: 123-456-7890
+              shippingAddressLine1: 123 Main St
+              shippingAddressLine2: Apt 101
+              shippingCity: Anytown
+              shippingState: CA
+              shippingZipCode: "12345"
+              shippingCountry: USA
+              

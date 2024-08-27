@@ -1,0 +1,101 @@
+{
+  "StartAt": "Get Circuit Status",
+  "States": {
+    "Get Circuit Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:get-circuit-status-service:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Is Circuit Closed?",
+      "ResultSelector": {
+        "state.$": "$.Payload"
+      },
+      "ResultPath": "$.circuitResult"
+    },
+    "Is Circuit Closed?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.circuitResult.state",
+          "StringEquals": "OPEN",
+          "Next": "Circuit Open"
+        }
+      ],
+      "Default": "NewOrder"
+    },
+    "Circuit Open": {
+      "Type": "Fail"
+    },
+    "NewOrder": {
+      "Next": "Circuit Closed",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:new-order-service:$LATEST"
+      },
+      "Comment": "Task to execute lambda. This will set circuit status to OPEN if the execution fails for three times or the task times out",
+      "TimeoutSeconds": 12,
+      "Retry": [
+        {
+          "BackoffRate": 1.5,
+          "MaxAttempts": 3,
+          "IntervalSeconds": 2,
+          "ErrorEquals": [
+            "States.ALL"
+          ]
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.TaskFailed",
+            "States.Timeout"
+          ],
+          "Next": "Update Circuit Status",
+          "ResultPath": "$.taskresult"
+        }
+      ]
+    },
+    "Update Circuit Status": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "OutputPath": "$.Payload",
+      "Parameters": {
+        "Payload.$": "$",
+        "FunctionName": "arn:aws:lambda:eu-central-1:<account id>:function:update-circuit-status-service:$LATEST"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "Lambda.TooManyRequestsException"
+          ],
+          "IntervalSeconds": 1,
+          "MaxAttempts": 3,
+          "BackoffRate": 2
+        }
+      ],
+      "Next": "Circuit Open"
+    },
+    "Circuit Closed": {
+      "Type": "Succeed"
+    }
+  }
+}

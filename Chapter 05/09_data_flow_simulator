@@ -1,0 +1,61 @@
+1. State Input
+
+{
+    "customerId": "123",
+    "items": ["item1", "item2", "item3"],
+    "total": "74.5",
+    "paymentDetails": {
+        "paymentMethod": "CARD",
+        "paymentTransactionId": "FDS232SGFDF341934"
+    },
+    "shippingDetails": {
+        "receiverName": "John Doe",
+        "receiverPhoneNumber": "123-456-7890",
+        "shippingAddressLine1": "123 Main St",
+        "shippingAddressLine2": "Apt 101",
+        "shippingCity": "Anytown",
+        "shippingState": "CA",
+        "shippingZipCode": "12345",
+        "shippingCountry": "USA"
+    }
+}
+
+2. Input Path
+
+Nothing
+
+3. Parameters
+
+{
+    "id.$": "States.UUID()",
+    "customerId.$": "$.customerId",
+    "items.$": "$.items",
+    "paymentDetails.$": {
+      "paymentMethod.$": "$.paymentDetails.paymentMethod",
+      "paymentTransactionId.$": "States.Base64Encode($.paymentDetails.paymentTransactionId)"
+    },
+    "shippingDetails.$": "States.Format('{}, {}, {}, {}, {}, {}', $.shippingDetails.shippingAddressLine1, $.shippingDetails.shippingAddressLine2, $.shippingDetails.shippingZipCode, $.shippingDetails.shippingCity, $.shippingDetails.shippingState, $.shippingDetails.shippingCountry)"
+  }
+
+4. Task Result
+
+{
+  "response": {
+    "orderId": "F1WE232SHG45H3F"
+  },
+  "statusCode": 200
+}
+
+5. ResultSelector
+
+{
+  "orderId.$": "$.response.orderId"
+}
+
+6. ResultPath
+
+$.newOrder
+
+7. OutputPath
+
+Nothing

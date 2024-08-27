@@ -1,0 +1,35 @@
+{
+  "Comment": "A description of my state machine",
+  "StartAt": "Call the ordering system API",
+  "States": {
+    "Call the ordering system API": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::apigateway:invoke",
+      "Parameters": {
+        "ApiEndpoint": "<api id>.execute-api.eu-central-1.amazonaws.com",
+        "Method": "POST",
+        "Stage": "prod",
+        "Path": "/orders",
+        "RequestBody.$": "$.NewOrderRequest"
+      },
+      "Next": "API invoked successfully?"
+    },
+    "API invoked successfully?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.StatusCode",
+          "NumericEquals": 201,
+          "Next": "Success"
+        }
+      ],
+      "Default": "Fail"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "Fail": {
+      "Type": "Fail"
+    }
+  }
+}
